@@ -40,12 +40,6 @@ task = client.submit_task(
         {'name': 'ENV0', 'value': 'test', 'is_private': True},
         {'name': 'ENV1', 'value': 'test', 'is_private': False},
     ],
-    notify_upon_creation=True,
-    notify_upon_termination=True,
-    group_chat_ids=[
-        'your group chat ID 0',
-        'your group chat ID 1',
-    ],
 )
 ```
 
@@ -56,9 +50,21 @@ async def execute_task(...):
     ...
 
     # 提交任务并等待
-    task = client.submit_task(...)
-    await task.finished()
+    try:
+        task = client.submit_task(...)
+    except Exception as e:
+        # 异常处理逻辑
+        # 可能导致任务提交失败的原因主要来自于参数不合法
+        ...
+    else:
+        # 等待任务达到终止状态
+        await task.finished()
 
-    # 后置业务逻辑
-    ...
+        # 后置业务逻辑
+        if task.state in ('Success', 'SuccessHolding'):
+            # 任务运行成功
+            ...
+        else:
+            # 任务运行失败或者被终止
+            ...
 ```

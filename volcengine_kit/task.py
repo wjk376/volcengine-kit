@@ -5,12 +5,10 @@ from datetime import datetime
 from typing import Union, Optional, List, Dict, Any
 
 from volcengine.Credentials import Credentials
-import lark_oapi as lark
 from loguru import logger
 
 from ._service import VolcMLPlatformService
 from .data._receive import GetCustomTaskResultModel, GetResourceQueueResultModel
-from . import utils
 
 
 _terminal_task_states = [
@@ -38,10 +36,6 @@ class VolcMLPlatformTask:
         print_progress: bool = False,
         connection_timeout: int = 10,
         socket_timeout: int = 10,
-        lark_client: Optional[lark.Client] = None,
-        notify_upon_creation: bool = True,
-        notify_upon_termination: bool = True,
-        group_chat_ids: List[str] = [],
         **kwds,
     ) -> None:
         self._q = queue
@@ -50,7 +44,6 @@ class VolcMLPlatformTask:
             connection_timeout=connection_timeout,
             socket_timeout=socket_timeout,
         )
-        self._lark_client = lark_client
         self._print_progress = print_progress
         
         # Inspect group chats.
@@ -59,11 +52,7 @@ class VolcMLPlatformTask:
             group_chat_ids = []
 
         # Create task on platform and get initial status.
-        self._id = self._create_task(
-            form=form,
-            send_notification=notify_upon_creation,
-            group_chat_ids=group_chat_ids,
-        )
+        self._id = self._create_task(form)
         self._status: GetCustomTaskResultModel = self._service.query_task(self._id)
         
         if (
@@ -82,28 +71,16 @@ class VolcMLPlatformTask:
         self._track_thread = threading.Thread(
             target=self._track,
             name=f'Task {self._id} tracking',
-            args=(tracking_interval, notify_upon_termination, group_chat_ids),
+            args=(tracking_interval,),
             daemon=True,
         )
         self._track_thread.start()
         
-    def _create_task(
-        self, 
-        form: Dict[str, Any],
-        send_notification: bool,
-        group_chat_ids: List[str],
-    ) -> str:
+    def _create_task(self, form: Dict[str, Any]) -> str:
         """Submit task to ML platform and retrieve task ID."""
         resp = self._service.call_api('CreateCustomTask', form=form)
         task_id = resp.get('Id', '')
         logger.success(f'Created task {task_id} in queue {self._q.Id}')
-        
-        if self._lark_client is not None and send_notification:
-            content = f'成功创建自定义任务[{task_id}]，所在队列[{self._q.Name}]。'
-            for chat_id in group_chat_ids:
-                if isinstance(chat_id, str):
-                    utils.send_group_chat_message(self._lark_client, chat_id, content)
-        
         return task_id
         
     @property
@@ -150,12 +127,7 @@ class VolcMLPlatformTask:
     def update_time(self) -> Optional[datetime]:
         return self._status.UpdateTime
     
-    def _track(
-        self,
-        tracking_interval: Union[int, float],
-        send_notification: bool,
-        group_chat_ids: List[str],
-    ) -> None:
+    def _track(self, tracking_interval: Union[int, float]) -> None:
         """Intermittently query task status until it reaches a terminal state."""
         while self.state not in _terminal_task_states:
             time.sleep(tracking_interval)
@@ -168,12 +140,6 @@ class VolcMLPlatformTask:
             finally:
                 if self._print_progress:
                     logger.info(f'Task {self.id} current state: `{self.state}`')
-        
-        if self._lark_client is not None and send_notification:
-            content = f'自定义任务[{self.id}]运行结束，最终状态[{self.state}]。'
-            for chat_id in group_chat_ids:
-                if isinstance(chat_id, str):
-                    utils.send_group_chat_message(self._lark_client, chat_id, content)
 
     async def finished(self) -> None:
         while self.state not in _terminal_task_states:

@@ -7,7 +7,7 @@ from pydantic import BaseModel, model_validator, Field
 class QuotaItemModel(BaseModel):
     VCPU: int
     Memory: int
-    GPUResources: Dict[str, int]
+    GPUResources: Dict[str, int] = Field(default_factory=dict)
     RdmaEniCount: int
     
     

@@ -24,6 +24,7 @@ from .data._send import (
     ResourceSpecModel,
     TaskFormModel,
 )
+from .utils import feishu
 
 
 def handle_exceptions(func):
@@ -206,13 +207,41 @@ class VolcMLPlatformClient:
         tracking_interval: Union[int, float] = 10,
         print_progress: bool = False,
         print_task_params: bool = False,
-        notify_upon_creation: bool = True,
-        notify_upon_termination: bool = True,
-        group_chat_ids: List[str] = [],
         handle_exceptions: bool = False,
         **kwds,
     ) -> VolcMLPlatformTask:
-        """Create task in optimal queue on volc ML platform."""
+        """Create task in optimal queue on Volcano Engine ML platform.
+        
+        Args:
+            name: Task name.
+            description: Task description.
+            tags: A list of strings that will be binded to task.
+            enable_range_type: Visibility of this task on platform. Currently only
+                support `Public` or `Private`.
+            image_repo: Address of image repository.
+            image_tag: Tag of image.
+            commands: A list of strings representing the entrypoint commands to be 
+                executed in the task.
+            default_qid: ID of the default resource queue to submit the task.
+            backup_qids: A list of backup resource queue IDs. Submissions to backup
+                queues will be made in case that default queue does not have enough
+                resources.
+            priority: Priority of task. Currently only support 2, 4, or 6.
+            preemptible: Task will be preemptible if set to True.
+            role_name: Ensumble name of task instances.
+            flavor_id: A string of model specification ID. For example `ml.g3a.large`.
+            cpu_buffer: Minimum number of CPU left in queue after allocating selected
+                flavor.
+            memory_buffer: Minimum number of memoty left in queue after allocating 
+                selected flavor.
+            volume_buffer: Minimum ssd volume left in queue to allow task submission.
+            vepfs_sub_paths: A list of paths to be mounted under vePFS.
+            envs: A list of dictionaries representing environment variables of the task.
+                Each dictionary must have keys `name` and `value`.
+            active_deadline_hours: Maximum hours allowed for task execution.
+            delay_exit_time_minutes: Number of minutes for task instances to be held
+                on platform after task has finished.
+        """
         # Build task parameters.
         image_url = self._validate_image(image_repo, image_tag)
         flavors_by_zone = self._service.list_flavors()
@@ -267,10 +296,6 @@ class VolcMLPlatformClient:
             print_progress=print_progress,
             connection_timeout=self._connection_timeout,
             socket_timeout=self._socket_timeout,
-            lark_client=self._lark_client,
-            notify_upon_creation=notify_upon_creation,
-            notify_upon_termination=notify_upon_termination,
-            group_chat_ids=group_chat_ids,
         )
         
     def stop_task(self, task_id: str) -> bool:
@@ -332,4 +357,22 @@ class VolcMLPlatformClient:
             logger.success(f'Requested to delete task {task_id}')
             return True
     
-    
+    def send_feishu_message(
+        self, 
+        receive_id_type: Literal['open_id', 'union_id', 'user_id', 'email', 'chat_id'],
+        receive_id: str,
+        msg_type: str,
+        content: str,  # serialized JSON string
+    ):
+        """Wrapper of sending feishu messages. Refer to 
+        https://open.feishu.cn/document/server-docs/im-v1/message/create 
+        for more details.        
+        """
+        resp = feishu.create_message(
+            client=self._lark_client,
+            receive_id_type=receive_id_type,
+            receive_id=receive_id,
+            msg_type=msg_type,
+            content=content,
+        )
+        return resp.success()
