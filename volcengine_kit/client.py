@@ -1,4 +1,5 @@
 import json
+import re
 from functools import wraps
 from typing import Dict, Optional, List, Literal, Union
 
@@ -64,6 +65,7 @@ class VolcMLPlatformClient:
         self._iam_user_id = iam_user_id
         self._connection_timeout = connection_timeout
         self._socket_timeout = socket_timeout
+        self._task_name_pattern = re.compile(r'^[\u4e00-\u9fa50-9a-zA-Z_-]{1,200}$')
         self._service = VolcMLPlatformService(
             credentials=self._credentials,
             connection_timeout=self._connection_timeout,
@@ -141,6 +143,15 @@ class VolcMLPlatformClient:
             raise ValueError(f'`{tag}` does not exist in image repo [{repo}]')
         return url
     
+    def _validate_task_name(self, name: str) -> None:
+        if not isinstance(name, str):
+            raise TypeError(
+                f'Expected string type task name but got {name.__class__.__qualname__}'
+            )
+        match = re.match(self._task_name_pattern, name)
+        if match is None:
+            raise ValueError(f'Task name `{name}` is invalid')
+    
     def _build_vepfs_storages(
         self, 
         sub_paths: List[str], 
@@ -213,7 +224,8 @@ class VolcMLPlatformClient:
         """Create task in optimal queue on Volcano Engine ML platform.
         
         Args:
-            name: Task name.
+            name: Task name. Supports 1 to 200 characters, including upper and lower 
+                case letters, Chinese, numbers, `-` and `_`.
             description: Task description.
             tags: A list of strings that will be binded to task.
             enable_range_type: Visibility of this task on platform. Currently only
@@ -236,13 +248,23 @@ class VolcMLPlatformClient:
                 selected flavor.
             volume_buffer: Minimum ssd volume left in queue to allow task submission.
             vepfs_sub_paths: A list of paths to be mounted under vePFS.
-            envs: A list of dictionaries representing environment variables of the task.
-                Each dictionary must have keys `name` and `value`.
+            envs: A list of dictionaries representing environment variables of the 
+                task. Each dictionary must have keys `name` and `value`.
             active_deadline_hours: Maximum hours allowed for task execution.
-            delay_exit_time_minutes: Number of minutes for task instances to be held
+            delay_exit_time_minutes: Number of minutes for task instances to be kept
                 on platform after task has finished.
+            tracking_interval: Number of seconds between status checks after task 
+                submission.
+            print_progress: Set to True to log task state during each status check.
+            print_task_params: Set to True to log task parameters form.
+            handle_exceptions: Set to True to enable exception handling. In this case
+                the output will be `None` if any exception is raised.
+                
+        Returns:
+            A `VolcMLPlatformTask` instance.
         """
         # Build task parameters.
+        self._validate_task_name(name)
         image_url = self._validate_image(image_repo, image_tag)
         flavors_by_zone = self._service.list_flavors()
         q = self._find_optimal_queue(
@@ -363,7 +385,7 @@ class VolcMLPlatformClient:
         receive_id: str,
         msg_type: str,
         content: str,  # serialized JSON string
-    ):
+    ) -> bool:
         """Wrapper of sending feishu messages. Refer to 
         https://open.feishu.cn/document/server-docs/im-v1/message/create 
         for more details.        
