@@ -386,10 +386,18 @@ class VolcMLPlatformClient:
         msg_type: str,
         content: str,  # serialized JSON string
     ) -> bool:
-        """Wrapper of sending feishu messages. Refer to 
-        https://open.feishu.cn/document/server-docs/im-v1/message/create 
-        for more details.        
+        """Wrapper of sending feishu messages. 
+        
+        Refer to https://open.feishu.cn/document/server-docs/im-v1/message/create 
+        for more details.
+        
+        Returns:
+            A boolean denoting whether the message has been sent successfully.   
         """
+        if self._lark_client is None:
+            logger.warning('Feishu bot is not initialized')
+            return False
+        
         resp = feishu.create_message(
             client=self._lark_client,
             receive_id_type=receive_id_type,

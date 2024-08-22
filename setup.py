@@ -6,6 +6,7 @@ import volcengine_kit
 setup(
     name='volcengine_kit',
     version=volcengine_kit.__version__,
+    url='https://github.com/wjk376/volcengine-kit',
     author='Jiankun Wang',
     packages=find_packages(),
     install_requires=[
