@@ -1,11 +1,9 @@
 from setuptools import setup, find_packages
 
-import volcengine_kit
-
 
 setup(
     name='volcengine_kit',
-    version=volcengine_kit.__version__,
+    version='0.0.1',
     url='https://github.com/wjk376/volcengine-kit',
     author='Jiankun Wang',
     packages=find_packages(),
