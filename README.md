@@ -2,6 +2,8 @@
 
 ## 使用说明
 ### 创建客户端
+使用之前请确保您已经拥有了火山引擎机器学习平台的IAM子账户，并且已经获取了API访问密钥。IAM用户ID可在
+账号管理中查看。如果需要使用客户端向飞书发送消息，请传入对应机器人的密钥。
 ```python
 from volcengine_kit import VolcMLPlatformClient
 
@@ -45,6 +47,8 @@ task = client.submit_task(
 
 ### 等待任务运行结束
 ```python
+import json
+
 async def execute_task(...):
     # 前置业务逻辑
     ...
@@ -66,5 +70,14 @@ async def execute_task(...):
             ...
         else:
             # 任务运行失败或者被终止
+            # 发送飞书通知到群聊的示例
+            client.send_feishu_message(
+                receive_id_type='chat_id',
+                receive_id='XXX',
+                msg_type='text',
+                content=json.dumps(
+                    {'text': f'任务[{task.id}]结束，状态[{task.state}]'}
+                ),
+            )
             ...
 ```
