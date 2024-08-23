@@ -46,11 +46,6 @@ class VolcMLPlatformTask:
         )
         self._print_progress = print_progress
         
-        # Inspect group chats.
-        if not isinstance(group_chat_ids, list):
-            logger.warning('Group chat IDs must be provided in a list')
-            group_chat_ids = []
-
         # Create task on platform and get initial status.
         self._id = self._create_task(form)
         self._status: GetCustomTaskResultModel = self._service.query_task(self._id)
@@ -80,7 +75,7 @@ class VolcMLPlatformTask:
         """Submit task to ML platform and retrieve task ID."""
         resp = self._service.call_api('CreateCustomTask', form=form)
         task_id = resp.get('Id', '')
-        logger.success(f'Created task {task_id} in queue {self._q.Id}')
+        logger.success(f'Created task [{task_id}] in {self._q}')
         return task_id
         
     @property
@@ -106,6 +101,10 @@ class VolcMLPlatformTask:
     @property
     def queue_id(self) -> str:
         return self._status.ResourceQueueId
+    
+    @property
+    def queue_name(self) -> str:
+        return self._q.Name
     
     @property
     def group_id(self) -> str:
@@ -139,7 +138,8 @@ class VolcMLPlatformTask:
                 logger.exception(e)
             finally:
                 if self._print_progress:
-                    logger.info(f'Task {self.id} current state: `{self.state}`')
+                    logger.info(f'Task [{self.id}] current state: `{self.state}`')
+        logger.info(f'Task [{self.id}] final state: `{self.state}`')
 
     async def finished(self) -> None:
         while self.state not in _terminal_task_states:

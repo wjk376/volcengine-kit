@@ -321,7 +321,14 @@ class VolcMLPlatformClient:
         )
         
     def stop_task(self, task_id: str) -> bool:
-        """Send stop task signal to platform."""  
+        """Send stop task request to Volcano Engine ML platform.
+        
+        Args:
+            task_id: ID of task on platform. The pattern is like `t-20240821181412-mlfxf`.
+            
+        Returns:
+            A boolean denoting whether the request was sent successfully.
+        """
         # Inspect the task before sending signal.    
         try:
             status = self._service.query_task(task_id)
@@ -330,11 +337,11 @@ class VolcMLPlatformClient:
             return False
         
         if status.CreatorUserId != self._iam_user_id:
-            logger.warning(f'Attempting to stop task {task_id} created by other user')
+            logger.warning(f'Attempting to stop task [{task_id}] created by other user')
         if status.State in [
             'Success', 'Failed', 'Cancelled', 'Killed', 'Exception', 
         ]:
-            logger.warning(f'Attempting to stop task {task_id} in `{status.State}` state')
+            logger.warning(f'Attempting to stop task [{task_id}] in `{status.State}` state')
         
         # Send stop signal.
         try:
@@ -349,10 +356,11 @@ class VolcMLPlatformClient:
             else:
                 raise
         else:
-            logger.success(f'Requested to stop task {task_id}')
+            logger.success(f'Requested to stop task [{task_id}]')
             return True
         
     def delete_task(self, task_id: str) -> bool:
+        """Send delete task request to Volcano Engine ML platform."""
         # Inspect the task before sending signal.    
         try:
             status = self._service.query_task(task_id)
@@ -376,7 +384,7 @@ class VolcMLPlatformClient:
             else:
                 raise
         else:
-            logger.success(f'Requested to delete task {task_id}')
+            logger.success(f'Requested to delete task [{task_id}]')
             return True
     
     def send_feishu_message(
